@@ -1,23 +1,62 @@
-{/* 將所有 amber 相關的顏色改為 emerald */}
 import React from 'react';
-import { Map, Heart, Brain, Target, Users, ArrowLeft, Share2, Code, Mail, Github, Instagram } from 'lucide-react';
+import { Map, Heart, Brain, Target, Users, ArrowLeft, Share2, Code, Mail, Github, Instagram, Star, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface AboutPageProps {
   onClose: () => void;
 }
 
+interface ContributionStats {
+  totalJourneys: number;
+  totalContributors: number;
+  recentContributions: {
+    author_name: string;
+    journey_title: string;
+    created_at: string;
+  }[];
+}
+
 export function AboutPage({ onClose }: AboutPageProps) {
-  const [journeyCount, setJourneyCount] = React.useState<number>(0);
+  const [stats, setStats] = React.useState<ContributionStats>({
+    totalJourneys: 0,
+    totalContributors: 0,
+    recentContributions: []
+  });
 
   React.useEffect(() => {
-    async function fetchCount() {
-      const { count } = await supabase
-        .from('journey_maps')
-        .select('*', { count: 'exact', head: true });
-      setJourneyCount(count || 0);
+    async function fetchStats() {
+      try {
+        // Get total journeys
+        const { count: totalJourneys } = await supabase
+          .from('journey_maps')
+          .select('*', { count: 'exact', head: true });
+
+        // Get unique contributors count
+        const { data: contributors } = await supabase
+          .from('journey_maps')
+          .select('author_name')
+          .not('author_name', 'is', null);
+        
+        const uniqueContributors = new Set(contributors?.map(c => c.author_name));
+
+        // Get recent contributions
+        const { data: recentContributions } = await supabase
+          .from('journey_maps')
+          .select('author_name, journey_title, created_at')
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        setStats({
+          totalJourneys: totalJourneys || 0,
+          totalContributors: uniqueContributors.size,
+          recentContributions: recentContributions || []
+        });
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
     }
-    fetchCount();
+
+    fetchStats();
   }, []);
 
   return (
@@ -66,7 +105,7 @@ export function AboutPage({ onClose }: AboutPageProps) {
                 <Users className="w-5 h-5 text-emerald-600 mt-1 flex-shrink-0" />
                 <span>
                   <strong>社群協作：</strong>
-                  目前已收集 {journeyCount} 個案例，透過群眾智慧持續累積和更新使用者體驗的資料庫。
+                  目前已收集 {stats.totalJourneys} 個案例，透過群眾智慧持續累積和更新使用者體驗的資料庫。
                 </span>
               </li>
               <li className="flex items-start gap-2">
@@ -77,6 +116,57 @@ export function AboutPage({ onClose }: AboutPageProps) {
                 </span>
               </li>
             </ul>
+          </div>
+
+          <div className="mb-8">
+            <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2 mb-4">
+              <Users className="w-6 h-6 text-emerald-600" />
+              貢獻者列表
+            </h3>
+            <div className="grid grid-cols-1 gap-6">
+              <div className="bg-gray-50 rounded-lg p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <p className="text-2xl font-bold text-emerald-600">{stats.totalJourneys}</p>
+                    <p className="text-sm text-gray-600">旅程地圖</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <p className="text-2xl font-bold text-emerald-600">{stats.totalContributors}</p>
+                    <p className="text-sm text-gray-600">貢獻者</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 text-center">
+                    <p className="text-2xl font-bold text-emerald-600">CC-BY 4.0</p>
+                    <p className="text-sm text-gray-600">授權條款</p>
+                  </div>
+                </div>
+                
+                <h4 className="font-semibold text-gray-800 mb-4">最近的貢獻</h4>
+                <div className="space-y-4">
+                  {stats.recentContributions.map((contribution, index) => (
+                    <div key={index} className="bg-white rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">{contribution.journey_title}</p>
+                          <p className="text-sm text-gray-600">
+                            貢獻者：{contribution.author_name || '匿名'}
+                          </p>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Calendar className="w-4 h-4 mr-1" />
+                          {new Date(contribution.created_at).toLocaleDateString('zh-TW')}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 text-center">
+              <p className="text-gray-600">
+                想要參與貢獻？歡迎到 <a href="https://github.com/Tofuswang" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-700">GitHub</a> 提交 Pull Request 
+                或是<a href="mailto:terry.f.wang@gmail.com" className="text-emerald-600 hover:text-emerald-700">聯絡我們</a>！
+              </p>
+            </div>
           </div>
 
           <div className="mb-8">
